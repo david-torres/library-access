@@ -1,5 +1,5 @@
-let libraryAccessBtn = document.getElementById('library_access')
-let libraryText = document.getElementById('library_count')
+let libraryAccessBtn = document.getElementById('library-access')
+let libraryText = document.getElementById('library-count')
 
 libraryAccessBtn.onclick = function (el) {
   chrome.cookies.get(
