@@ -1,5 +1,5 @@
 let libraryAccessBtn = document.getElementById('library_access')
-let libraryList = document.getElementById('library')
+let libraryText = document.getElementById('library_count')
 
 libraryAccessBtn.onclick = function (el) {
   chrome.cookies.get(
@@ -13,10 +13,15 @@ function handleToken (cookie) {
   getUser(token).then(function (user) {
     getLibrary(token, user, 1, 0, []).then(function (library) {
       console.log(library)
+      let libraryMin = {}
       library.forEach(deck => {
-        let deckItem = document.createElement('li')
-        deckItem.appendChild(document.createTextNode(deck.name))
-        libraryList.appendChild(deckItem)
+        libraryMin[deck.id] = deck.name
+      })
+      console.log(libraryMin)
+
+      chrome.storage.sync.set({ library: libraryMin }, function () {
+        console.log('Library saved')
+        libraryText.innerHTML = library.length + ' decks accessed'
       })
     })
   })
