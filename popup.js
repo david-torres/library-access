@@ -6,16 +6,19 @@ let dokText = document.getElementById('dok-sync')
 
 loadLibrary().then(function (library) {
   console.log('loaded library', library)
-  if (!library || Object.keys(library).length == 0) {
+  if (!library || library.length == 0) {
     libraryText.innerHTML = 'No decks accessed from Master Vault'
   } else {
-    libraryText.innerHTML = Object.keys(library).length + ' decks accessed from Master Vault'
+    libraryText.innerHTML = library.length + ' decks accessed from Master Vault'
   }
 })
 
 libraryAccessBtn.onclick = function (el) {
   chrome.cookies.get(
-    { url: 'https://www.keyforgegame.com/', name: 'auth' },
+    {
+      url: 'https://www.keyforgegame.com/',
+      name: 'auth'
+    },
     handleToken
   )
 }
@@ -23,10 +26,15 @@ libraryAccessBtn.onclick = function (el) {
 syncDokBtn.onclick = function (el) {
   loadLibrary().then(function (library) {
     console.log('loaded library', library)
-    if (!library || Object.keys(library).length == 0) {
-      alert('No decks accessed from Master Vault. Click "Access Master Vault" first.')
+    if (!library || library.length == 0) {
+      alert(
+        'No decks accessed from Master Vault. Click "Access Master Vault" first.'
+      )
     } else {
-      alert('Implement this')
+      library.forEach(deckId => {
+        importDeck(deckId)
+      })
+      alert('Synced decks')
     }
   })
 }
@@ -37,15 +45,21 @@ function handleToken (cookie) {
   getUser(token).then(function (user) {
     getLibrary(token, user, 1, onlyFavorites, []).then(function (library) {
       console.log(library)
-      let libraryMin = {}
+      let libraryMin = []
       library.forEach(deck => {
-        libraryMin[deck.id] = deck.name
+        libraryMin.push(deck.id)
       })
 
-      chrome.storage.sync.set({ library: libraryMin }, function () {
-        console.log('Library saved')
-        libraryText.innerHTML = library.length + ' decks accessed from Master Vault'
-      })
+      chrome.storage.sync.set(
+        {
+          library: libraryMin
+        },
+        function () {
+          console.log('Library saved')
+          libraryText.innerHTML =
+            library.length + ' decks accessed from Master Vault'
+        }
+      )
     })
   })
 }
@@ -112,5 +126,21 @@ function getLibrary (token, user, page, onlyFavorites, library) {
           resolve(library)
         }
       })
+  })
+}
+
+function importDeck (deckId) {
+  return new Promise((resolve, reject) => {
+    fetch('https://decksofkeyforge.com/api/decks/' + deckId + '/import', {
+      credentials: 'omit',
+      headers: {
+        accept: 'application/json, text/plain, */*',
+        'accept-language': 'en-US,en;q=0.9,da;q=0.8',
+        timezone: '-240'
+      },
+      method: 'POST'
+    }).then(function (response) {
+      console.log('Import ' + deckId, response)
+    })
   })
 }
