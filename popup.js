@@ -14,32 +14,32 @@ loadLibrary().then(function (library) {
 })
 
 libraryAccessBtn.onclick = function (el) {
-  chrome.cookies.get(
-    {
+  chrome.cookies.get({
       url: 'https://www.keyforgegame.com/',
       name: 'auth'
     },
-    handleToken
+    handleMasterVaultToken
   )
 }
 
 syncDokBtn.onclick = function (el) {
-  loadLibrary().then(function (library) {
-    console.log('loaded library', library)
-    if (!library || library.length == 0) {
-      alert(
-        'No decks accessed from Master Vault. Click "Access Master Vault" first.'
-      )
-    } else {
-      library.forEach(deckId => {
-        importDeck(deckId)
-      })
-      alert('Synced decks')
-    }
+  chrome.tabs.query({
+    active: true,
+    currentWindow: true
+  }, function (tabs) {
+    chrome.tabs.executeScript(
+      tabs[0].id, {
+        code: `localStorage["AUTH"];`
+      },
+      function (response) {
+        token = response[0]
+        handleDokToken(token)
+      }
+    )
   })
 }
 
-function handleToken (cookie) {
+function handleMasterVaultToken(cookie) {
   let token = cookie.value
   let onlyFavorites = libraryOnlyFavorites.checked ? 1 : 0
   getUser(token).then(function (user) {
@@ -50,8 +50,7 @@ function handleToken (cookie) {
         libraryMin.push(deck.id)
       })
 
-      chrome.storage.sync.set(
-        {
+      chrome.storage.sync.set({
           library: libraryMin
         },
         function () {
@@ -64,16 +63,32 @@ function handleToken (cookie) {
   })
 }
 
-function getUser (token) {
-  return fetch('https://www.keyforgegame.com/api/users/self/', {
-    credentials: 'include',
-    headers: {
-      accept: 'application/json',
-      'accept-language': 'en-us',
-      authorization: 'Token ' + token,
-      'x-authorization': 'Token ' + token
+function handleDokToken(token) {
+  loadLibrary().then(function (library) {
+    console.log('loaded library', library)
+    if (!library || library.length == 0) {
+      alert(
+        'No decks accessed from Master Vault. Click "Access Master Vault" first.'
+      )
+    } else {
+      library.forEach(deckId => {
+        importDeck(token, deckId)
+      })
+      alert('Synced decks')
     }
   })
+}
+
+function getUser(token) {
+  return fetch('https://www.keyforgegame.com/api/users/self/', {
+      credentials: 'include',
+      headers: {
+        accept: 'application/json',
+        'accept-language': 'en-us',
+        authorization: 'Token ' + token,
+        'x-authorization': 'Token ' + token
+      }
+    })
     .then(function (response) {
       return response.json()
     })
@@ -82,7 +97,7 @@ function getUser (token) {
     })
 }
 
-function loadLibrary () {
+function loadLibrary() {
   return new Promise((resolve, reject) => {
     chrome.storage.sync.get(['library'], function (result) {
       resolve(result.library)
@@ -90,27 +105,26 @@ function loadLibrary () {
   })
 }
 
-function getLibrary (token, user, page, onlyFavorites, library) {
+function getLibrary(token, user, page, onlyFavorites, library) {
   return new Promise((resolve, reject) => {
     fetch(
-      'https://www.keyforgegame.com/api/users/' +
+        'https://www.keyforgegame.com/api/users/' +
         user.id +
         '/decks/?page=' +
         page +
         '&page_size=10&search=&power_level=0,11&chains=0,24&only_favorites=' +
         onlyFavorites +
-        '&ordering=-date',
-      {
-        credentials: 'include',
-        headers: {
-          accept: 'application/json',
-          'accept-language': 'en-us',
-          authorization: 'Token ' + token,
-          'x-authorization': 'Token ' + token
-        },
-        method: 'GET'
-      }
-    )
+        '&ordering=-date', {
+          credentials: 'include',
+          headers: {
+            accept: 'application/json',
+            'accept-language': 'en-us',
+            authorization: 'Token ' + token,
+            'x-authorization': 'Token ' + token
+          },
+          method: 'GET'
+        }
+      )
       .then(function (response) {
         return response.json()
       })
@@ -129,17 +143,20 @@ function getLibrary (token, user, page, onlyFavorites, library) {
   })
 }
 
-function importDeck (deckId) {
+function importDeck(token, deckId) {
   return new Promise((resolve, reject) => {
-    fetch('https://decksofkeyforge.com/api/decks/' + deckId + '/import', {
-      credentials: 'omit',
-      headers: {
-        accept: 'application/json, text/plain, */*',
-        'accept-language': 'en-US,en;q=0.9,da;q=0.8',
-        timezone: '-240'
-      },
-      method: 'POST'
-    }).then(function (response) {
+    fetch(
+      'https://decksofkeyforge.com/api/decks/' + deckId + '/import-and-add', {
+        credentials: 'include',
+        headers: {
+          accept: 'application/json, text/plain, */*',
+          'accept-language': 'en-US,en;q=0.9,da;q=0.8',
+          authorization: token,
+          timezone: '-240'
+        },
+        method: 'POST'
+      }
+    ).then(function (response) {
       console.log('Import ' + deckId, response)
     })
   })
